@@ -1,0 +1,74 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.offici5l.mitools'
+    compileSdk 36
+    buildToolsVersion "36.0.0"
+
+    defaultConfig {
+        applicationId 'com.offici5l.mitools'
+        minSdk 26
+        targetSdk 36
+
+        versionName "1.0.0"
+        versionCode = versionName.replaceAll("[^0-9]", "").toInteger() * 1000
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('mitools.jks')
+            storePassword System.getenv("SIGNING_STORE_PASSWORD")
+            keyAlias System.getenv("SIGNING_KEY_ALIAS")
+            keyPassword System.getenv("SIGNING_KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            if (variant.buildType.name == "release") {
+                outputFileName = "MiTools-${variant.versionName}.apk"
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
+    implementation 'com.squareup.okio:okio:3.9.0'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.1.21'
+}
+
+tasks.register('printVersionInfo') {
+    doLast {
+        def versionName = android.defaultConfig.versionName ?: "unknown"
+        def versionCode = android.defaultConfig.versionCode ?: 0
+        println "versionName=$versionName"
+        println "versionCode=$versionCode"
+    }
+}
