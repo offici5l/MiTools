@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">MiTools</string>
+    <string name="mi_unlock">Mi Unlock</string>
+    <string name="mi_assistant">Mi Assistant</string>
+    <string name="mi_flash">Mi Flash</string>
+    <string name="website">offici5l.github.io</string>
+    <string name="app_logo_description">MiTools</string>
+</resources>
