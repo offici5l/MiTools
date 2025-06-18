@@ -2,10 +2,6 @@
   <img src="MiTools/src/main/res/drawable/app_logo.png" alt="MiTools Logo" width="150"/>
 </p>
 
-<div align="center">
-  <img src="https://img.shields.io/github/downloads/offici5l/MiTools/total?label=Tools&logo=xiaomi&color=FF6700" alt="Downloads">
-</div>
-
 <p align="center">
   <strong>In a world racing toward simplicity and speed, MiTools embodies a forward-looking vision to align tools with the demands of the era!</strong><br>
   An application that transforms Xiaomi's official tools into a flexible mobile experience, replacing the need for a PC with the ability to use another phone!
@@ -24,6 +20,10 @@
     <img src="https://img.shields.io/badge/Download%20App-FF6700?style=flat&logo=android&logoColor=white" alt="Download App" width="180"/>
   </a>
 </p>
+
+<div align="center">
+  <img src="https://img.shields.io/github/downloads/offici5l/MiTools/total?label=Tools&logo=xiaomi&color=FF6700" alt="Downloads">
+</div>
 
 ---
 
