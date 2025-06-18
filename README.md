@@ -22,7 +22,7 @@
 </p>
 
 <div align="center">
-  <img src="https://img.shields.io/github/downloads/offici5l/MiTools/total?label=Tools&logo=xiaomi&color=FF6700" alt="Downloads">
+  <img src="https://img.shields.io/github/downloads/offici5l/MiTools/total?label=Tools%20%7C%20total%20downloads&logo=xiaomi&color=FF6700" alt="Downloads">
 </div>
 
 ---
