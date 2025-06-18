@@ -1,10 +1,10 @@
-<div align="center">
-  <img src="https://img.shields.io/github/downloads/offici5l/MiTools/total?label=Tools&logo=xiaomi&color=FF6700" alt="Downloads">
-</div>
-
 <p align="center">
   <img src="MiTools/src/main/res/drawable/app_logo.png" alt="MiTools Logo" width="150"/>
 </p>
+
+<div align="center">
+  <img src="https://img.shields.io/github/downloads/offici5l/MiTools/total?label=Tools&logo=xiaomi&color=FF6700" alt="Downloads">
+</div>
 
 <p align="center">
   <strong>In a world racing toward simplicity and speed, MiTools embodies a forward-looking vision to align tools with the demands of the era!</strong><br>
