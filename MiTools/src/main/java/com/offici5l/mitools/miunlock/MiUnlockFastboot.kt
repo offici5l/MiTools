@@ -66,28 +66,23 @@ object MiUnlockFastboot {
 
             connection.claimInterface(usbInterface, true)
             try {
-                // 1. إرسال الأمر "download:<file_size_in_hex>"
-                val command = "download:${String.format("%08x", fileSize.toInt())}" // Format size as 8-digit hex
+                val command = "download:${String.format("%08x", fileSize.toInt())}"
                 val commandBytes = command.toByteArray(StandardCharsets.UTF_8)
                 if (connection.bulkTransfer(endpointOut, commandBytes, commandBytes.size, TIMEOUT_MS) < 0) {
                     return@withContext false
                 }
 
-                // 2. قراءة رد الأمر (يجب أن يكون "DATA")
                 val initialBuffer = ByteBuffer.allocate(BUFFER_SIZE)
                 val initialBytesRead = connection.bulkTransfer(endpointIn, initialBuffer.array(), initialBuffer.capacity(), TIMEOUT_MS)
                 if (initialBytesRead <= 0) {
                     return@withContext false
                 }
                 val initialResponse = String(initialBuffer.array(), 0, initialBytesRead, StandardCharsets.UTF_8).trim()
-                
-                // Check if the response is "DATA" followed by the size
+
                 if (!initialResponse.startsWith("DATA")) {
                     return@withContext false
                 }
-                // No need to send file size again, it's part of the download command
 
-                // 3. إرسال محتوى الملف
                 val fileBytes = encryptDataFile.readBytes()
                 val chunkSize = BUFFER_SIZE
                 var offset = 0
@@ -100,7 +95,6 @@ object MiUnlockFastboot {
                     offset += bytesWritten
                 }
 
-                // 4. قراءة الرد النهائي
                 val buffer = ByteBuffer.allocate(BUFFER_SIZE)
                 val bytesRead = connection.bulkTransfer(endpointIn, buffer.array(), buffer.capacity(), TIMEOUT_MS)
                 if (bytesRead > 0) {
@@ -145,13 +139,30 @@ object MiUnlockFastboot {
                 return@withContext null
             }
 
+            val responseBuilder = StringBuilder()
             val buffer = ByteBuffer.allocate(BUFFER_SIZE)
-            val bytesRead = connection.bulkTransfer(endpointIn, buffer.array(), buffer.capacity(), TIMEOUT_MS)
-            if (bytesRead > 0) {
-                String(buffer.array(), 0, bytesRead, StandardCharsets.UTF_8).trim()
-            } else {
-                null
+            var lastReadTime = System.currentTimeMillis()
+
+            while (true) {
+                val bytesRead = connection.bulkTransfer(endpointIn, buffer.array(), buffer.capacity(), TIMEOUT_MS)
+                if (bytesRead > 0) {
+                    val receivedData = String(buffer.array(), 0, bytesRead, StandardCharsets.UTF_8)
+                    responseBuilder.append(receivedData)
+                    lastReadTime = System.currentTimeMillis()
+
+                    val currentResponse = responseBuilder.toString()
+                    if (currentResponse.contains("OKAY", ignoreCase = true) || currentResponse.contains("FAIL", ignoreCase = true)) {
+                        break
+                    }
+                } else if (bytesRead == 0) {
+                    if (System.currentTimeMillis() - lastReadTime > TIMEOUT_MS) {
+                        break
+                    }
+                } else {
+                    return@withContext null
+                }
             }
+            responseBuilder.toString().trim()
         } catch (e: Exception) {
             null
         } finally {
@@ -178,7 +189,6 @@ object MiUnlockFastboot {
             if (inEndpoint != null && outEndpoint != null) {
                 return Triple(iface, inEndpoint, outEndpoint)
             }
-            return null
         }
         return null
     }
@@ -187,14 +197,29 @@ object MiUnlockFastboot {
         if (output.isNullOrEmpty()) {
             return null
         }
+
         val regex = Regex("(?i)$key:\\s*([\\S\\s]+?)(?:\\n|$)")
-        val result = regex.find(output)?.groupValues?.get(1)?.trim() ?: run {
-            if (output.startsWith("OKAY", ignoreCase = true)) {
-                output.substringAfter("OKAY").trim()
-            } else {
-                output.trim()
+        val matches = regex.findAll(output)
+
+        val tokenParts = mutableListOf<String>()
+        for (match in matches) {
+            match.groupValues.getOrNull(1)?.trim()?.let {
+                if (it.isNotBlank()) {
+                    tokenParts.add(it)
+                }
             }
         }
-        return result.takeIf { it.isNotBlank() }
+
+        if (tokenParts.isNotEmpty()) {
+            return tokenParts.joinToString("")
+        }
+
+        if (output.startsWith("OKAY", ignoreCase = true)) {
+            val resultAfterOkay = output.substringAfter("OKAY").trim()
+            return resultAfterOkay.takeIf { it.isNotBlank() }
+        }
+
+        val finalResult = output.trim()
+        return finalResult.takeIf { it.isNotBlank() }
     }
 }

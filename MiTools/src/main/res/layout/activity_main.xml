@@ -63,7 +63,7 @@
                 android:textColor="@color/white"
                 android:padding="14dp"
                 android:enabled="true"
-                android:layout_marginBottom="12dp" />
+                android:visibility="gone" android:layout_marginBottom="12dp" />
 
             <Button
                 android:id="@+id/miFlashButton"
@@ -74,6 +74,7 @@
                 android:textColor="@color/white"
                 android:padding="14dp"
                 android:enabled="true"
+                android:visibility="gone"
                 android:layout_marginBottom="12dp" />
 
         </LinearLayout>

@@ -69,6 +69,10 @@ class MiUnlockDActivity : AppCompatActivity() {
                     return@launch
                 }
 
+                noticeTextView.text = "\ndeviceToken: ${deviceToken}"
+
+                delay(2000)
+
                 processUnlockSteps()
             }
         } else {
