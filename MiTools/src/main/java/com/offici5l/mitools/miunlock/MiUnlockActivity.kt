@@ -8,6 +8,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.offici5l.mitools.MainActivity
 
 class MiUnlockActivity : AppCompatActivity() {
+    private var deviceId: String = ""
+    private var userId: String = ""
 
     private val loginResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
@@ -49,11 +51,11 @@ class MiUnlockActivity : AppCompatActivity() {
 
     private fun handleLoginResult(data: Intent?) {
         val passToken = data?.getStringExtra("passToken") ?: ""
-        val deviceId = data?.getStringExtra("deviceId") ?: ""
-        val userId = data?.getStringExtra("userId") ?: ""
-        
+        deviceId = data?.getStringExtra("deviceId") ?: ""
+        userId = data?.getStringExtra("userId") ?: ""
+
         val hasAllValues = passToken.isNotEmpty() && deviceId.isNotEmpty() && userId.isNotEmpty()
-        
+
         if (hasAllValues) {
             startHSTActivity(passToken, deviceId, userId)
         } else {
@@ -76,8 +78,11 @@ class MiUnlockActivity : AppCompatActivity() {
                 putExtra("serviceToken", serviceToken)
                 putExtra("ssecurity", ssecurity)
                 putExtra("host", host)
+                putExtra("deviceId", deviceId)
+                putExtra("userId", userId)
             }
             startActivity(intent)
         }
+        finish()
     }
 }
