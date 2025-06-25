@@ -132,8 +132,18 @@ class MiUnlockDActivity : AppCompatActivity() {
             "data" to JSONObject().apply {
                 put("clientId", "2")
                 put("clientVersion", "7.6.727.43")
-                put("deviceInfo", JSONObject().put("product", product))
+                put("deviceInfo", JSONObject().apply {
+                    put("boardVersion", "")
+                    put("deviceName", "")
+                    put("product", product)
+                    put("socId", "")
+                })
                 put("deviceToken", deviceToken)
+                put("language", "en")
+                put("operate", "unlock")
+                put("pcId", "")
+                put("region", "")
+                put("uid", "")
             }.toString(),
             "nonce" to nonce!!,
             "sid" to "miui_unlocktool_client"
