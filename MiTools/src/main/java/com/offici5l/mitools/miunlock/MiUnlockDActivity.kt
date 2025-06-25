@@ -31,6 +31,8 @@ class MiUnlockDActivity : AppCompatActivity() {
     private lateinit var serviceToken: String
     private lateinit var ssecurity: String
     private lateinit var host: String
+    private lateinit var deviceId: String
+    private lateinit var userId: String
     private lateinit var noticeTextView: TextView
     private lateinit var continueButton: Button
     private var nonce: String? = null
@@ -43,11 +45,13 @@ class MiUnlockDActivity : AppCompatActivity() {
 
         noticeTextView = findViewById(R.id.noticeTextView)
         continueButton = findViewById(R.id.continueButton)
-        continueButton.visibility = View.GONE // Ensure button is initially hidden
+        continueButton.visibility = View.GONE
 
         serviceToken = intent.getStringExtra("serviceToken") ?: ""
         ssecurity = intent.getStringExtra("ssecurity") ?: ""
         host = intent.getStringExtra("host") ?: ""
+        deviceId = intent.getStringExtra("deviceId") ?: ""
+        userId = intent.getStringExtra("userId") ?: ""
 
         if (serviceToken.isNotEmpty() && ssecurity.isNotEmpty() && host.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
@@ -55,7 +59,6 @@ class MiUnlockDActivity : AppCompatActivity() {
                 product = MiUnlockFastboot.getProduct(this@MiUnlockDActivity).replace("\\s".toRegex(), "")
                 deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity).replace("\\s".toRegex(), "")
 
-                
                 if (product.isNullOrEmpty()) {
                     noticeTextView.text = "Failed to retrieve product."
                     return@launch
@@ -84,12 +87,12 @@ class MiUnlockDActivity : AppCompatActivity() {
     private fun processUnlockSteps() {
         val randomString = (1..16).map { "abcdefghijklmnopqrstuvwxyz".random() }.joinToString("")
         val nrParams = mapOf("r" to randomString, "sid" to "miui_unlocktool_client")
-        
+
         CoroutineScope(Dispatchers.Main).launch {
             val nr = withContext(Dispatchers.IO) {
                 send(host, "/api/v2/nonce", listOf("r", "sid"), nrParams, ssecurity, serviceToken)
             }
-            
+
             nonce = nr.optString("nonce")
             if (nonce.isNullOrEmpty()) {
                 noticeTextView.text = "Failed to retrieve nonce: $nr"
@@ -141,14 +144,14 @@ class MiUnlockDActivity : AppCompatActivity() {
                 put("deviceToken", deviceToken)
                 put("language", "en")
                 put("operate", "unlock")
-                put("pcId", "")
+                put("pcId", deviceId)
                 put("region", "")
-                put("uid", "")
+                put("uid", userId)
             }.toString(),
             "nonce" to nonce!!,
             "sid" to "miui_unlocktool_client"
         )
-        
+
         CoroutineScope(Dispatchers.Main).launch {
             val ar = withContext(Dispatchers.IO) {
                 send(host, "/api/v3/ahaUnlock", listOf("appId", "data", "nonce", "sid"), arParams, ssecurity, serviceToken)
