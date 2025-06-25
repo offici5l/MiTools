@@ -51,6 +51,11 @@ class MiUnlockDActivity : AppCompatActivity() {
         ssecurity = intent.getStringExtra("ssecurity") ?: ""
         host = intent.getStringExtra("host") ?: ""
         deviceId = intent.getStringExtra("deviceId") ?: ""
+
+        val md = MessageDigest.getInstance("MD5")
+        val digest = md.digest(deviceId.toByteArray())
+        val pcId = digest.joinToString("") { "%02x".format(it) }
+
         userId = intent.getStringExtra("userId") ?: ""
 
         if (serviceToken.isNotEmpty() && ssecurity.isNotEmpty() && host.isNotEmpty()) {
@@ -144,7 +149,7 @@ class MiUnlockDActivity : AppCompatActivity() {
                 put("deviceToken", deviceToken)
                 put("language", "en")
                 put("operate", "unlock")
-                put("pcId", deviceId)
+                put("pcId", pcId)
                 put("region", "")
                 put("uid", userId)
             }.toString(),
