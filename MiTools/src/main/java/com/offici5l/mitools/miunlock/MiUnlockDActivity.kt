@@ -52,15 +52,10 @@ class MiUnlockDActivity : AppCompatActivity() {
         if (serviceToken.isNotEmpty() && ssecurity.isNotEmpty() && host.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
                 noticeTextView.text = "Power off your phone and press the Volume Down + Power button to enter Bootloader and connect the phone using USB cable."
-                // product = MiUnlockFastboot.getProduct(this@MiUnlockDActivity)
-                // deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity)
+                product = MiUnlockFastboot.getProduct(this@MiUnlockDActivity).replace("\\s".toRegex(), "")
+                deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity).replace("\\s".toRegex(), "")
 
-                product = "tanzanite"
-                deviceToken = "VQECOwEQ/
-oS2UWSpazdbFPRijvObXAMJdGFuemF
-uaXRIAhyyVTaWKciRI59k2j3BBvsZWaKr
-Vey+GQ6UBmvL"
-
+                
                 if (product.isNullOrEmpty()) {
                     noticeTextView.text = "Failed to retrieve product."
                     return@launch
