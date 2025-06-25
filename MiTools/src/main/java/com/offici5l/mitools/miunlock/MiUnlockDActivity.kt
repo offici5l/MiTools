@@ -38,6 +38,7 @@ class MiUnlockDActivity : AppCompatActivity() {
     private var nonce: String? = null
     private var product: String? = null
     private var deviceToken: String? = null
+    private lateinit var pcId: String // <<< FIX 1: Declare pcId as a member variable
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,15 +55,16 @@ class MiUnlockDActivity : AppCompatActivity() {
 
         val md = MessageDigest.getInstance("MD5")
         val digest = md.digest(deviceId.toByteArray())
-        val pcId = digest.joinToString("") { "%02x".format(it) }
+        pcId = digest.joinToString("") { "%02x".format(it) }
 
         userId = intent.getStringExtra("userId") ?: ""
 
         if (serviceToken.isNotEmpty() && ssecurity.isNotEmpty() && host.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
                 noticeTextView.text = "Power off your phone and press the Volume Down + Power button to enter Bootloader and connect the phone using USB cable."
-                product = MiUnlockFastboot.getProduct(this@MiUnlockDActivity).replace("\\s".toRegex(), "")
-                deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity).replace("\\s".toRegex(), "")
+               
+                product = MiUnlockFastboot.getProduct(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
+                deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
 
                 if (product.isNullOrEmpty()) {
                     noticeTextView.text = "Failed to retrieve product."
@@ -105,7 +107,7 @@ class MiUnlockDActivity : AppCompatActivity() {
             }
 
             val crParams = mapOf(
-                "data" to JSONObject().put("product", product).toString(),
+                "data" to JSONObject().put("product", product).toString(), // product is nullable, but used in JSON. It's implicitly handled by JSONObject.
                 "nonce" to nonce!!,
                 "sid" to "miui_unlocktool_client"
             )
@@ -143,10 +145,10 @@ class MiUnlockDActivity : AppCompatActivity() {
                 put("deviceInfo", JSONObject().apply {
                     put("boardVersion", "")
                     put("deviceName", "")
-                    put("product", product)
+                    put("product", product) // product is nullable here, JSONObject.put handles nulls
                     put("socId", "")
                 })
-                put("deviceToken", deviceToken)
+                put("deviceToken", deviceToken) // deviceToken is nullable, JSONObject.put handles nulls
                 put("language", "en")
                 put("operate", "unlock")
                 put("pcId", pcId)
@@ -224,6 +226,7 @@ class MiUnlockDActivity : AppCompatActivity() {
                 Base64.encodeToString(cipher.doFinal(input.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
             }
 
+            // Note: If params[k] can be null here, you might need to handle it with `?.let { ... }` or `!!`
             val signParams = paramOrder.joinToString("&") { k -> "$k=${params[k]}" }
             val signStr = "POST\n$path\n$signParams"
 
