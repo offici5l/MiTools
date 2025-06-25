@@ -193,33 +193,17 @@ object MiUnlockFastboot {
         return null
     }
 
+ 
     private fun parseFastbootOutput(output: String?, key: String): String? {
-        if (output.isNullOrEmpty()) {
-            return null
-        }
+        if (output.isNullOrEmpty()) return null
 
-        val regex = Regex("(?i)$key:\\s*([\\S\\s]+?)(?:\\n|$)")
+        val regex = Regex("(?i)$key:\\s*([^\\s]+)(?=(?:\\s*(?:INFO|OKAY|FAIL|$)|\\s*$key:))", 
+        setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
+    
         val matches = regex.findAll(output)
+        val tokenParts = matches.mapNotNull { it.groupValues.getOrNull(1)?.trim() }
 
-        val tokenParts = mutableListOf<String>()
-        for (match in matches) {
-            match.groupValues.getOrNull(1)?.trim()?.let {
-                if (it.isNotBlank()) {
-                    tokenParts.add(it)
-                }
-            }
-        }
-
-        if (tokenParts.isNotEmpty()) {
-            return tokenParts.joinToString("")
-        }
-
-        if (output.startsWith("OKAY", ignoreCase = true)) {
-            val resultAfterOkay = output.substringAfter("OKAY").trim()
-            return resultAfterOkay.takeIf { it.isNotBlank() }
-        }
-
-        val finalResult = output.trim()
-        return finalResult.takeIf { it.isNotBlank() }
+        return tokenParts.joinToString("").takeIf { it.isNotBlank() }
     }
+
 }
