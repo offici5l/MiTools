@@ -23,7 +23,7 @@ object MiUnlockFastboot {
             val device = MiUnlockUsbManager.getFastbootDevice(context) ?: return@withContext null
             val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
             val output = executeFastbootCommand(usbManager, device, "getvar:product")
-            parseFastbootOutput(output, "product", isToken = false)?.takeIf { it.isNotBlank() && !it.contains("FAIL", ignoreCase = true) }
+            parseFastbootOutput(output)?.takeIf { it.isNotBlank() && !it.contains("FAIL", ignoreCase = true) }
         } catch (e: Exception) {
             null
         }
@@ -34,10 +34,10 @@ object MiUnlockFastboot {
             val device = MiUnlockUsbManager.getFastbootDevice(context) ?: return@withContext null
             val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
             var token = executeFastbootCommand(usbManager, device, "getvar:token")
-            var parsedToken = parseFastbootOutput(token, "token", isToken = true)?.takeIf { it.isNotBlank() && !it.contains("FAIL", ignoreCase = true) }
+            var parsedToken = parseFastbootOutput(token)?.takeIf { it.isNotBlank() && !it.contains("FAIL", ignoreCase = true) }
             if (parsedToken == null) {
                 token = executeFastbootCommand(usbManager, device, "oem get_token")
-                parsedToken = parseFastbootOutput(token, "token", isToken = true)?.takeIf { it.isNotBlank() && !it.contains("FAIL", ignoreCase = true) }
+                parsedToken = parseFastbootOutput(token)?.takeIf { it.isNotBlank() && !it.contains("FAIL", ignoreCase = true) }
             }
             parsedToken
         } catch (e: Exception) {
@@ -192,20 +192,13 @@ object MiUnlockFastboot {
         return null
     }
 
-    private fun parseFastbootOutput(output: String?, key: String, isToken: Boolean = false): String? {
+    private fun parseFastbootOutput(output: String?): String? {
         if (output.isNullOrEmpty()) return null
 
-        if (isToken) {
-            val cleanedOutput = output
-                .replace(Regex("(?i)(?:\\(bootloader\\)\\s*)?$key:\\s*|\\s*INFO\\s*|\\s*OKAY\\s*|\\s*FAIL\\s*"), "")
-                .trim()
-            return cleanedOutput.takeIf { it.isNotBlank() }
-        } else {
-            val regex = Regex("(?i)$key:\\s*([^\\s]+)(?=(?:\\s*(?:INFO|OKAY|FAIL|$)|\\s*$key:))", 
-                             setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
-            val matches = regex.findAll(output)
-            val tokenParts = matches.mapNotNull { it.groupValues.getOrNull(1)?.trim() }
-            return tokenParts.joinToString("").takeIf { it.isNotBlank() }
-        }
+        val cleanedOutput = output
+            .replace(Regex("(?i)\\(bootloader\\)\\s*|token:\\s*|product:\\s*|INFO\\s*|OKAY\\s*|FAIL\\s*"), "")
+            .trim()
+
+        return cleanedOutput.takeIf { it.isNotBlank() }
     }
 }
