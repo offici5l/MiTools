@@ -56,7 +56,10 @@ class MiUnlockDActivity : AppCompatActivity() {
                 // deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity)
 
                 product = "tanzanite"
-                deviceToken = "VQECOwEQ/ oS2UWSpazdbFPRijvObXAMJdGFuemF uaXRIAhyyVTaWKciRI59k2j3BBvsZWaKr Vey+GQ6UBmvL"
+                deviceToken = "VQECOwEQ/
+oS2UWSpazdbFPRijvObXAMJdGFuemF
+uaXRIAhyyVTaWKciRI59k2j3BBvsZWaKr
+Vey+GQ6UBmvL"
 
                 if (product.isNullOrEmpty()) {
                     noticeTextView.text = "Failed to retrieve product."
