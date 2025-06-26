@@ -22,7 +22,7 @@ import android.widget.Toast
 
 class MiUnlockLoginActivity : AppCompatActivity() {
 
-    private val initialUrl = "https://account.xiaomi.com/pass/serviceLogin?sid=unlockApi&checkSafeAddress=true"
+    private val initialUrl = "https://account.xiaomi.com/pass/serviceLogin?sid=unlockApi&json=false&passive=true&hidden=false&_snsDefault=facebook&checkSafePhone=true"
     private val endPattern = "{\"R\":\"\",\"S\":\"OK\"}"
     private var monitoringEnded = false
     private var passToken: String? = null
