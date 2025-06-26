@@ -107,7 +107,7 @@ class MiUnlockDActivity : AppCompatActivity() {
             }
 
             val crParams = mapOf(
-                "data" to JSONObject().put("product", product).toString(), // product is nullable, but used in JSON. It's implicitly handled by JSONObject.
+                "data" to JSONObject().put("product", product).toString(),
                 "nonce" to nonce!!,
                 "sid" to "miui_unlocktool_client"
             )
