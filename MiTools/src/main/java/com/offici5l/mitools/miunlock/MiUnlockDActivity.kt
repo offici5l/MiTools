@@ -145,10 +145,10 @@ class MiUnlockDActivity : AppCompatActivity() {
                 put("deviceInfo", JSONObject().apply {
                     put("boardVersion", "")
                     put("deviceName", "")
-                    put("product", product) // product is nullable here, JSONObject.put handles nulls
+                    put("product", product)
                     put("socId", "")
                 })
-                put("deviceToken", deviceToken) // deviceToken is nullable, JSONObject.put handles nulls
+                put("deviceToken", deviceToken)
                 put("language", "en")
                 put("operate", "unlock")
                 put("pcId", pcId)
