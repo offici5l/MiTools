@@ -38,7 +38,7 @@ class MiUnlockDActivity : AppCompatActivity() {
     private var nonce: String? = null
     private var product: String? = null
     private var deviceToken: String? = null
-    private lateinit var pcId: String // <<< FIX 1: Declare pcId as a member variable
+    private lateinit var pcId: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
