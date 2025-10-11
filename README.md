@@ -19,6 +19,8 @@
   <a href="https://github.com/offici5l/MiTools/releases" style="text-decoration:none;">
     <img src="https://img.shields.io/badge/Download%20App-FF6700?style=flat&logo=android&logoColor=white" alt="Download App" width="180"/>
   </a>
+  <br>
+  <img src="https://img.shields.io/github/downloads/offici5l/MiTools/total?color=brightgreen&label=Total%20Downloads&style=flat" alt="Total Downloads"/>
 </p>
 
 ---
