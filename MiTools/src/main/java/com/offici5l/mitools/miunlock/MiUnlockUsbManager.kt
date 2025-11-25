@@ -107,8 +107,7 @@ object MiUnlockUsbManager {
         val deviceList = usbManager.deviceList
         return deviceList.values.find { device ->
             device.vendorId == 0x18D1 ||
-            device.vendorId == 0x0BB4 ||
-            device.vendorId == 0x0E8D
+            device.vendorId == 0x2717
         }
     }
 }
