@@ -1,4 +1,4 @@
-name: Release-artifact
+name: prerelease
 
 permissions:
   contents: write
@@ -36,8 +36,23 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
-      - name: Upload APK as Artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
-          path: MiTools/build/outputs/apk/release/MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
+          tag_name: v${{ steps.get_version.outputs.VERSION_NAME }}
+          release_name: Release v${{ steps.get_version.outputs.VERSION_NAME }}
+          draft: false
+          prerelease: true
+
+      - name: Upload APK to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: MiTools/build/outputs/apk/release/MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
+          asset_name: MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
+          asset_content_type: application/vnd.android.package-archive
