@@ -45,8 +45,10 @@ jobs:
           tag: v${{ steps.get_version.outputs.VERSION_NAME }}
           name: prerelease v${{ steps.get_version.outputs.VERSION_NAME }} 
           prerelease: true
-          allowUpdate: true
+          allowUpdates: true
           removeArtifacts: true
+          replacesArtifacts: true
+          omitPrereleaseDuringUpdate: false
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload APK to prerelease
