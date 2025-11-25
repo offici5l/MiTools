@@ -9,6 +9,7 @@ import android.hardware.usb.UsbManager
 import android.app.PendingIntent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
@@ -47,8 +48,10 @@ object MiUnlockUsbManager {
                     )
                     val deferred = registerUsbReceiver(context)
                     usbManager.requestPermission(device, pendingIntent)
-                    val granted = deferred.await()
-                    if (granted) {
+
+                    val granted = withTimeoutOrNull(5000L) { deferred.await() }
+
+                    if (granted == true) {
                         return device
                     } else {
                         delay(PERMISSION_RETRY_DELAY_MS)
