@@ -330,7 +330,7 @@ class MiUnlockDActivity : AppCompatActivity() {
             cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec)
             val decrypted = cipher.doFinal(Base64.decode(responseBody, Base64.DEFAULT))
             val decryptedString = String(decrypted, Charsets.UTF_8)
-            val jsonString = String(Base64.decode(decryptedString, Charsets.UTF_8), Charsets.UTF_8)
+            val jsonString = String(Base64.decode(decryptedString, Base64.DEFAULT), Charsets.UTF_8)
             JSONObject(jsonString)
         } catch (e: Exception) {
             JSONObject().put("error", "Request failed: ${e.javaClass.simpleName} - ${e.message}")
