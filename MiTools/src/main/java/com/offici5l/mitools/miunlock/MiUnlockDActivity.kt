@@ -9,7 +9,6 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Base64
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -28,6 +27,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.util.Base64 // Changed from android.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.spec.IvParameterSpec
@@ -55,9 +55,7 @@ class MiUnlockDActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
                 val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                device?.let {
-                    requestUsbPermission(it)
-                }
+                device?.let { requestUsbPermission(it) }
             }
         }
     }
@@ -80,7 +78,7 @@ class MiUnlockDActivity : AppCompatActivity() {
         val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         val permissionIntent = PendingIntent.getBroadcast(
             this, 0, Intent(ACTION_USB_PERMISSION),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0 // User's provided code still uses FLAG_MUTABLE
         )
         usbManager.requestPermission(device, permissionIntent)
     }
@@ -233,7 +231,7 @@ class MiUnlockDActivity : AppCompatActivity() {
                 val encryptData = ar.optString("encryptData", "")
                 if (encryptData.isNotEmpty()) {
                     try {
-                        val bytes = hexStringToByteArray(encryptData)
+                        val bytes = Base64.getDecoder().decode(encryptData)
                         val file = File(filesDir, "encryptData")
                         FileOutputStream(file).use { it.write(bytes) }
 
@@ -267,7 +265,7 @@ class MiUnlockDActivity : AppCompatActivity() {
         serviceToken: String
     ): JSONObject {
         return try {
-            val key = Base64.decode(ssecurity, Base64.DEFAULT)
+            val key = Base64.getDecoder().decode(ssecurity)
             val iv = "0102030405060708".toByteArray(Charsets.UTF_8)
             val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
             val secretKey = SecretKeySpec(key, "AES")
@@ -276,7 +274,7 @@ class MiUnlockDActivity : AppCompatActivity() {
             val params = paramsRaw.toMutableMap()
             if (params.containsKey("data")) {
                 val dataJson = params["data"]!!
-                params["data"] = Base64.encodeToString(dataJson.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+                params["data"] = Base64.getEncoder().encodeToString(dataJson.toByteArray(Charsets.UTF_8))
             }
 
             if (!params.containsKey("sid")) {
@@ -285,7 +283,7 @@ class MiUnlockDActivity : AppCompatActivity() {
 
             val ep: (String) -> String = { input ->
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec)
-                Base64.encodeToString(cipher.doFinal(input.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+                Base64.getEncoder().encodeToString(cipher.doFinal(input.toByteArray(Charsets.UTF_8)))
             }
 
             val signParams = paramOrder.joinToString("&") { k -> "$k=${params[k]}" }
@@ -293,16 +291,16 @@ class MiUnlockDActivity : AppCompatActivity() {
 
             val hmacKey = "2tBeoEyJTunmWUGq7bQH2Abn0k2NhhurOaqBfyxCuLVgn4AVj7swcawe53uDUno".toByteArray(Charsets.UTF_8)
             val mac = Mac.getInstance("HmacSHA1")
-            mac.init(SecretKeySpec(hmacKey, "HmacSHA1"))
+            mac.init(SecretKeySpec(hmacKey, "HmacSHA1") )
             val hmacDigest = mac.doFinal(signStr.toByteArray(Charsets.UTF_8))
             val hexHmac = ByteString.of(*hmacDigest).hex()
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec)
-            val currentSign = Base64.encodeToString(cipher.doFinal(hexHmac.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+            val currentSign = Base64.getEncoder().encodeToString(cipher.doFinal(hexHmac.toByteArray(Charsets.UTF_8)))
 
             val encodedParams = paramOrder.map { k -> "$k=${ep(params[k]!!)}" }
             val sha1Input = "POST&${path}&${encodedParams.joinToString("&")}&sign=$currentSign&$ssecurity"
             val sha1 = MessageDigest.getInstance("SHA1")
-            val signature = Base64.encodeToString(sha1.digest(sha1Input.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
+            val signature = Base64.getEncoder().encodeToString(sha1.digest(sha1Input.toByteArray(Charsets.UTF_8)))
 
             val formBody = FormBody.Builder()
             paramOrder.forEach { k ->
@@ -328,17 +326,12 @@ class MiUnlockDActivity : AppCompatActivity() {
             val responseBody = response.body?.string() ?: throw Exception("Empty response from server")
 
             cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec)
-            val decrypted = cipher.doFinal(Base64.decode(responseBody, Base64.DEFAULT))
+            val decrypted = cipher.doFinal(Base64.getDecoder().decode(responseBody))
             val decryptedString = String(decrypted, Charsets.UTF_8)
-            val jsonString = String(Base64.decode(decryptedString, Base64.DEFAULT), Charsets.UTF_8)
+            val jsonString = String(Base64.getDecoder().decode(decryptedString), Charsets.UTF_8)
             JSONObject(jsonString)
         } catch (e: Exception) {
             JSONObject().put("error", "Request failed: ${e.javaClass.simpleName} - ${e.message}")
         }
-    }
-
-    private fun hexStringToByteArray(hex: String): ByteArray {
-        require(hex.length % 2 == 0) { "Hex string must have an even length" }
-        return hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
 }
