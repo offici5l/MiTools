@@ -1,6 +1,13 @@
 package com.offici5l.mitools.miunlock
 
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Base64
 import android.view.View
@@ -10,21 +17,21 @@ import androidx.appcompat.app.AppCompatActivity
 import com.offici5l.mitools.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okio.ByteString
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
-import java.security.MessageDigest
-import okio.ByteString
-import kotlinx.coroutines.delay
 
 class MiUnlockDActivity : AppCompatActivity() {
 
@@ -39,6 +46,48 @@ class MiUnlockDActivity : AppCompatActivity() {
     private var product: String? = null
     private var deviceToken: String? = null
     private lateinit var pcId: String
+
+    companion object {
+        private const val ACTION_USB_PERMISSION = "com.offici5l.mitools.USB_PERMISSION"
+    }
+
+    // Receiver for device attachment
+    private val usbDeviceAttachedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
+                val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                device?.let {
+                    requestUsbPermission(it)
+                }
+            }
+        }
+    }
+
+    // Receiver for permission result
+    private val usbPermissionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_USB_PERMISSION) {
+                synchronized(this) {
+                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                        // Permission granted, proceed with unlock
+                        startUnlockProcess()
+                    } else {
+                        // Permission denied
+                        noticeTextView.text = "USB permission was denied. Please reconnect the device and grant permission."
+                    }
+                }
+            }
+        }
+    }
+
+    private fun requestUsbPermission(device: UsbDevice) {
+        val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
+        val permissionIntent = PendingIntent.getBroadcast(
+            this, 0, Intent(ACTION_USB_PERMISSION),
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+        )
+        usbManager.requestPermission(device, permissionIntent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,34 +109,54 @@ class MiUnlockDActivity : AppCompatActivity() {
         userId = intent.getStringExtra("userId") ?: ""
 
         if (serviceToken.isNotEmpty() && ssecurity.isNotEmpty() && host.isNotEmpty()) {
-            CoroutineScope(Dispatchers.Main).launch {
-                noticeTextView.text = "Power off your phone and press the Volume Down + Power button to enter Bootloader and connect the phone using USB cable."
-               
-                product = MiUnlockFastboot.getProduct(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
-                deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
-
-                if (product.isNullOrEmpty()) {
-                    noticeTextView.text = "Failed to retrieve product."
-                    return@launch
-                }
-
-                noticeTextView.text = "\nPhone connected\nproduct: ${product}"
-
-                delay(2000)
-
-                if (deviceToken.isNullOrEmpty()) {
-                    noticeTextView.text = "Failed to retrieve deviceToken."
-                    return@launch
-                }
-
-                noticeTextView.text = "\ndeviceToken: ${deviceToken}"
-
-                delay(2000)
-
-                processUnlockSteps()
-            }
+            noticeTextView.text = "Power off your phone and press the Volume Down + Power button to enter Bootloader and connect the phone using USB cable."
         } else {
             finish()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Register both receivers
+        val attachedFilter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+        registerReceiver(usbDeviceAttachedReceiver, attachedFilter)
+
+        val permissionFilter = IntentFilter(ACTION_USB_PERMISSION)
+        registerReceiver(usbPermissionReceiver, permissionFilter)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Unregister both receivers to prevent leaks
+        try {
+            unregisterReceiver(usbDeviceAttachedReceiver)
+            unregisterReceiver(usbPermissionReceiver)
+        } catch (e: IllegalArgumentException) {
+            // Ignore if they were already unregistered
+        }
+    }
+
+    private fun startUnlockProcess() {
+        CoroutineScope(Dispatchers.Main).launch {
+            noticeTextView.text = "USB permission granted. Retrieving device info..."
+
+            product = MiUnlockFastboot.getProduct(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
+            if (product.isNullOrEmpty()) {
+                noticeTextView.text = "Failed to retrieve product. Please ensure the device is in Fastboot mode and try again."
+                return@launch
+            }
+            noticeTextView.text = "\nPhone connected\nproduct: ${product}"
+            delay(2000)
+
+            deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
+            if (deviceToken.isNullOrEmpty()) {
+                noticeTextView.text = "Failed to retrieve deviceToken."
+                return@launch
+            }
+            noticeTextView.text = "\ndeviceToken: ${deviceToken}"
+            delay(2000)
+
+            processUnlockSteps()
         }
     }
 
@@ -226,7 +295,6 @@ class MiUnlockDActivity : AppCompatActivity() {
                 Base64.encodeToString(cipher.doFinal(input.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
             }
 
-            // Note: If params[k] can be null here, you might need to handle it with `?.let { ... }` or `!!`
             val signParams = paramOrder.joinToString("&") { k -> "$k=${params[k]}" }
             val signStr = "POST\n$path\n$signParams"
 
