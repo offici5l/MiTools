@@ -39,5 +39,5 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MiTools-Release-debug.apk
+          name: MiTools-Release.apk
           path: MiTools/build/outputs/apk/release/MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
