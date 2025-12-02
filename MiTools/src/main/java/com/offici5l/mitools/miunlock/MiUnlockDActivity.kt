@@ -51,7 +51,6 @@ class MiUnlockDActivity : AppCompatActivity() {
         private const val ACTION_USB_PERMISSION = "com.offici5l.mitools.USB_PERMISSION"
     }
 
-    // Receiver for device attachment
     private val usbDeviceAttachedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
@@ -63,16 +62,13 @@ class MiUnlockDActivity : AppCompatActivity() {
         }
     }
 
-    // Receiver for permission result
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_USB_PERMISSION) {
                 synchronized(this) {
                     if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        // Permission granted, proceed with unlock
                         startUnlockProcess()
                     } else {
-                        // Permission denied
                         noticeTextView.text = "USB permission was denied. Please reconnect the device and grant permission."
                     }
                 }
@@ -117,7 +113,6 @@ class MiUnlockDActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Register both receivers
         val attachedFilter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
         registerReceiver(usbDeviceAttachedReceiver, attachedFilter)
 
@@ -127,12 +122,10 @@ class MiUnlockDActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Unregister both receivers to prevent leaks
         try {
             unregisterReceiver(usbDeviceAttachedReceiver)
             unregisterReceiver(usbPermissionReceiver)
         } catch (e: IllegalArgumentException) {
-            // Ignore if they were already unregistered
         }
     }
 
@@ -145,7 +138,7 @@ class MiUnlockDActivity : AppCompatActivity() {
                 noticeTextView.text = "Failed to retrieve product. Please ensure the device is in Fastboot mode and try again."
                 return@launch
             }
-            noticeTextView.text = "\nPhone connected\nproduct: ${product}"
+            noticeTextView.text = "\nPhone connected\nproduct: $product"
             delay(2000)
 
             deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
@@ -153,7 +146,7 @@ class MiUnlockDActivity : AppCompatActivity() {
                 noticeTextView.text = "Failed to retrieve deviceToken."
                 return@launch
             }
-            noticeTextView.text = "\ndeviceToken: ${deviceToken}"
+            noticeTextView.text = "\ndeviceToken: $deviceToken"
             delay(2000)
 
             processUnlockSteps()
@@ -337,7 +330,7 @@ class MiUnlockDActivity : AppCompatActivity() {
             cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec)
             val decrypted = cipher.doFinal(Base64.decode(responseBody, Base64.DEFAULT))
             val decryptedString = String(decrypted, Charsets.UTF_8)
-            val jsonString = String(Base64.decode(decryptedString, Base64.DEFAULT), Charsets.UTF_8)
+            val jsonString = String(Base64.decode(decryptedString, Charsets.UTF_8), Charsets.UTF_8)
             JSONObject(jsonString)
         } catch (e: Exception) {
             JSONObject().put("error", "Request failed: ${e.javaClass.simpleName} - ${e.message}")

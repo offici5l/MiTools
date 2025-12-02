@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Xiaomi (Normal Mode) a.k.a 0x2717 -->
     <usb-device vendor-id="10007" />
-    <!-- Google (Fastboot/ADB Mode) a.k.a 0x18D1 -->
     <usb-device vendor-id="6353" />
 </resources>
