@@ -1,0 +1,43 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Restore keystore
+        run: echo "${{ secrets.KEYSTORE_FILE }}" | base64 -d > MiTools/mitools.jks
+
+      - name: Get version info from Gradle
+        id: get_version
+        run: |
+          VERSION_NAME=$(./gradlew -q :MiTools:printVersionInfo | grep versionName | cut -d '=' -f 2)
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
+
+      - name: Build Release APK
+        env:
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiTools-Release-debug.apk
+          path: MiTools/build/outputs/apk/release/MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
