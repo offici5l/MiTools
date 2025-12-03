@@ -28,11 +28,20 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
-import java.util.Base64 // Changed from android.util.Base64
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
+
+@Suppress("DEPRECATION")
+private fun Intent.getUsbDeviceExtra(): UsbDevice? {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+    } else {
+        getParcelableExtra(UsbManager.EXTRA_DEVICE)
+    }
+}
 
 class MiUnlockDActivity : AppCompatActivity() {
 
@@ -55,8 +64,7 @@ class MiUnlockDActivity : AppCompatActivity() {
     private val usbDeviceAttachedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
-                val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                device?.let { requestUsbPermission(it) }
+                intent.getUsbDeviceExtra()?.let { requestUsbPermission(it) }
             }
         }
     }
@@ -65,7 +73,9 @@ class MiUnlockDActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_USB_PERMISSION) {
                 if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                    startUnlockProcess()
+                    intent.getUsbDeviceExtra()?.let {
+                        startUnlockProcess(it)
+                    }
                 } else {
                     noticeTextView.text = "USB permission was denied. Please reconnect the device and grant permission."
                 }
@@ -81,7 +91,10 @@ class MiUnlockDActivity : AppCompatActivity() {
             0
         }
         val permissionIntent = PendingIntent.getBroadcast(
-            this, 0, Intent(ACTION_USB_PERMISSION), flags
+            this,
+            device.deviceId, 
+            Intent(ACTION_USB_PERMISSION),
+            flags
         )
         usbManager.requestPermission(device, permissionIntent)
     }
@@ -135,7 +148,7 @@ class MiUnlockDActivity : AppCompatActivity() {
         }
     }
 
-    private fun startUnlockProcess() {
+    private fun startUnlockProcess(device: UsbDevice) {
         CoroutineScope(Dispatchers.Main).launch {
             noticeTextView.text = "USB permission granted. Retrieving device info..."
 
