@@ -3,6 +3,7 @@ package com.offici5l.mitools.miunlock
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Context.RECEIVER_NOT_EXPORTED
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
@@ -76,9 +77,13 @@ class MiUnlockDActivity : AppCompatActivity() {
 
     private fun requestUsbPermission(device: UsbDevice) {
         val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_IMMUTABLE
+        } else {
+            0
+        }
         val permissionIntent = PendingIntent.getBroadcast(
-            this, 0, Intent(ACTION_USB_PERMISSION),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0 // User's provided code still uses FLAG_MUTABLE
+            this, 0, Intent(ACTION_USB_PERMISSION), flags
         )
         usbManager.requestPermission(device, permissionIntent)
     }
@@ -112,10 +117,15 @@ class MiUnlockDActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         val attachedFilter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
-        registerReceiver(usbDeviceAttachedReceiver, attachedFilter)
-
         val permissionFilter = IntentFilter(ACTION_USB_PERMISSION)
-        registerReceiver(usbPermissionReceiver, permissionFilter)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(usbDeviceAttachedReceiver, attachedFilter, RECEIVER_NOT_EXPORTED)
+            registerReceiver(usbPermissionReceiver, permissionFilter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(usbDeviceAttachedReceiver, attachedFilter)
+            registerReceiver(usbPermissionReceiver, permissionFilter)
+        }
     }
 
     override fun onPause() {
