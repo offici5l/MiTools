@@ -64,12 +64,10 @@ class MiUnlockDActivity : AppCompatActivity() {
     private val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_USB_PERMISSION) {
-                synchronized(this) {
-                    if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                        startUnlockProcess()
-                    } else {
-                        noticeTextView.text = "USB permission was denied. Please reconnect the device and grant permission."
-                    }
+                if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                    startUnlockProcess()
+                } else {
+                    noticeTextView.text = "USB permission was denied. Please reconnect the device and grant permission."
                 }
             }
         }

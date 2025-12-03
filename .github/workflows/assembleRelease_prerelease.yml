@@ -38,25 +38,17 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
-      - name: Create or Update GitHub prerelease
-        id: create_release
+      - name: Create/Update
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ steps.get_version.outputs.VERSION_NAME }}
-          name: prerelease v${{ steps.get_version.outputs.VERSION_NAME }} 
+          name: prerelease v${{ steps.get_version.outputs.VERSION_NAME }}
           prerelease: true
           allowUpdates: true
           removeArtifacts: true
           replacesArtifacts: true
-          omitPrereleaseDuringUpdate: false
+          omitPrereleaseDuringUpdate: true
+          skipIfReleaseExists: false
+          artifacts: MiTools/build/outputs/apk/release/MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
+          artifactContentType: application/vnd.android.package-archive
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload APK to prerelease
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: MiTools/build/outputs/apk/release/MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
-          asset_name: MiTools-${{ steps.get_version.outputs.VERSION_NAME }}.apk
-          asset_content_type: application/vnd.android.package-archive
