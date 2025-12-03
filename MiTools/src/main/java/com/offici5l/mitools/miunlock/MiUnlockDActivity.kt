@@ -64,7 +64,14 @@ class MiUnlockDActivity : AppCompatActivity() {
     private val usbDeviceAttachedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
-                intent.getUsbDeviceExtra()?.let { requestUsbPermission(it) }
+                intent.getUsbDeviceExtra()?.let { device ->
+                    val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
+                    if (usbManager.hasPermission(device)) {
+                        startUnlockProcess(device)
+                    } else {
+                        requestUsbPermission(device)
+                    }
+                }
             }
         }
     }
@@ -121,14 +128,15 @@ class MiUnlockDActivity : AppCompatActivity() {
         userId = intent.getStringExtra("userId") ?: ""
 
         if (serviceToken.isNotEmpty() && ssecurity.isNotEmpty() && host.isNotEmpty()) {
+            registerReceivers()
             noticeTextView.text = "Power off your phone and press the Volume Down + Power button to enter Bootloader and connect the phone using USB cable."
+            checkForConnectedDevices()
         } else {
             finish()
         }
     }
 
-    override fun onResume() {
-        super.onResume()
+    private fun registerReceivers() {
         val attachedFilter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
         val permissionFilter = IntentFilter(ACTION_USB_PERMISSION)
 
@@ -141,12 +149,28 @@ class MiUnlockDActivity : AppCompatActivity() {
         }
     }
 
-    override fun onPause() {
-        super.onPause()
+    private fun checkForConnectedDevices() {
+        val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
+        val deviceList = usbManager.deviceList
+        
+        for (device in deviceList.values) {
+            if (usbManager.hasPermission(device)) {
+                startUnlockProcess(device)
+                break
+            } else {
+                requestUsbPermission(device)
+                break 
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
         try {
             unregisterReceiver(usbDeviceAttachedReceiver)
             unregisterReceiver(usbPermissionReceiver)
         } catch (e: IllegalArgumentException) {
+            // Already unregistered
         }
     }
 
