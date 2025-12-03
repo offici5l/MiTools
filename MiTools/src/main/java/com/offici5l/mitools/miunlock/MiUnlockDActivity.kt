@@ -90,10 +90,12 @@ class MiUnlockDActivity : AppCompatActivity() {
         } else {
             0
         }
+        val intent = Intent(ACTION_USB_PERMISSION)
+        intent.setPackage(packageName)
         val permissionIntent = PendingIntent.getBroadcast(
             this,
-            device.deviceId, 
-            Intent(ACTION_USB_PERMISSION),
+            device.deviceId,
+            intent,
             flags
         )
         usbManager.requestPermission(device, permissionIntent)
