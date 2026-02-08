@@ -1,15 +1,14 @@
 package com.offici5l.mitools.miunlock
 
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Context.RECEIVER_NOT_EXPORTED
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -17,31 +16,21 @@ import androidx.appcompat.app.AppCompatActivity
 import com.offici5l.mitools.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okio.ByteString
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.security.MessageDigest
-import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
-
-@Suppress("DEPRECATION")
-private fun Intent.getUsbDeviceExtra(): UsbDevice? {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
-    } else {
-        getParcelableExtra(UsbManager.EXTRA_DEVICE)
-    }
-}
+import java.security.MessageDigest
+import okio.ByteString
 
 class MiUnlockDActivity : AppCompatActivity() {
 
@@ -56,56 +45,24 @@ class MiUnlockDActivity : AppCompatActivity() {
     private var product: String? = null
     private var deviceToken: String? = null
     private lateinit var pcId: String
+    private var isProcessing = false
 
-    companion object {
-        private const val ACTION_USB_PERMISSION = "com.offici5l.mitools.USB_PERMISSION"
-    }
-
-    private val usbDeviceAttachedReceiver = object : BroadcastReceiver() {
+    private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
-                intent.getUsbDeviceExtra()?.let { device ->
-                    val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
-                    if (usbManager.hasPermission(device)) {
-                        startUnlockProcess(device)
-                    } else {
-                        requestUsbPermission(device)
+            when (intent?.action) {
+                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                    if (!isProcessing) {
+                        startDeviceDetection()
+                    }
+                }
+                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
+                    if (isProcessing && product == null) {
+                        noticeTextView.text = "Device disconnected. Please reconnect your phone in Bootloader mode."
+                        isProcessing = false
                     }
                 }
             }
         }
-    }
-
-    private val usbPermissionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == ACTION_USB_PERMISSION) {
-                if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                    intent.getUsbDeviceExtra()?.let {
-                        startUnlockProcess(it)
-                    }
-                } else {
-                    noticeTextView.text = "USB permission was denied. Please reconnect the device and grant permission."
-                }
-            }
-        }
-    }
-
-    private fun requestUsbPermission(device: UsbDevice) {
-        val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_IMMUTABLE
-        } else {
-            0
-        }
-        val intent = Intent(ACTION_USB_PERMISSION)
-        intent.setPackage(packageName)
-        val permissionIntent = PendingIntent.getBroadcast(
-            this,
-            device.deviceId,
-            intent,
-            flags
-        )
-        usbManager.requestPermission(device, permissionIntent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,70 +85,84 @@ class MiUnlockDActivity : AppCompatActivity() {
         userId = intent.getStringExtra("userId") ?: ""
 
         if (serviceToken.isNotEmpty() && ssecurity.isNotEmpty() && host.isNotEmpty()) {
-            registerReceivers()
             noticeTextView.text = "Power off your phone and press the Volume Down + Power button to enter Bootloader and connect the phone using USB cable."
-            checkForConnectedDevices()
         } else {
             finish()
         }
     }
 
-    private fun registerReceivers() {
-        val attachedFilter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
-        val permissionFilter = IntentFilter(ACTION_USB_PERMISSION)
-
+    override fun onResume() {
+        super.onResume()
+        val filter = IntentFilter().apply {
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+        }
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(usbDeviceAttachedReceiver, attachedFilter, RECEIVER_NOT_EXPORTED)
-            registerReceiver(usbPermissionReceiver, permissionFilter, RECEIVER_NOT_EXPORTED)
+            registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
-            registerReceiver(usbDeviceAttachedReceiver, attachedFilter)
-            registerReceiver(usbPermissionReceiver, permissionFilter)
+            registerReceiver(usbReceiver, filter)
+        }
+
+        if (!isProcessing) {
+            checkAlreadyConnectedDevice()
         }
     }
 
-    private fun checkForConnectedDevices() {
+    override fun onPause() {
+        super.onPause()
+        try {
+            unregisterReceiver(usbReceiver)
+        } catch (e: IllegalArgumentException) {
+        }
+    }
+
+    private fun checkAlreadyConnectedDevice() {
         val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
         val deviceList = usbManager.deviceList
-        
         for (device in deviceList.values) {
-            if (usbManager.hasPermission(device)) {
-                startUnlockProcess(device)
+            if (isFastbootDevice(device)) {
+                startDeviceDetection()
                 break
-            } else {
-                requestUsbPermission(device)
-                break 
             }
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            unregisterReceiver(usbDeviceAttachedReceiver)
-            unregisterReceiver(usbPermissionReceiver)
-        } catch (e: IllegalArgumentException) {
-            // Already unregistered
-        }
+    private fun isFastbootDevice(device: UsbDevice): Boolean {
+        return device.vendorId == 0x18D1 || 
+               device.vendorId == 0x2717 || 
+               device.vendorId == 0x0BB4 || 
+               device.vendorId == 0x0E8D
     }
 
-    private fun startUnlockProcess(device: UsbDevice) {
+    private fun startDeviceDetection() {
+        if (isProcessing) return
+        isProcessing = true
+
         CoroutineScope(Dispatchers.Main).launch {
-            noticeTextView.text = "USB permission granted. Retrieving device info..."
+            noticeTextView.text = "Device detected. Retrieving information..."
 
             product = MiUnlockFastboot.getProduct(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
+            deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
+
             if (product.isNullOrEmpty()) {
-                noticeTextView.text = "Failed to retrieve product. Please ensure the device is in Fastboot mode and try again."
+                noticeTextView.text = "Failed to retrieve product."
+                isProcessing = false
                 return@launch
             }
-            noticeTextView.text = "\nPhone connected\nproduct: $product"
+
+            noticeTextView.text = "\nPhone connected\nproduct: ${product}"
+
             delay(2000)
 
-            deviceToken = MiUnlockFastboot.getDeviceToken(this@MiUnlockDActivity)?.replace("\\s".toRegex(), "")
             if (deviceToken.isNullOrEmpty()) {
                 noticeTextView.text = "Failed to retrieve deviceToken."
+                isProcessing = false
                 return@launch
             }
-            noticeTextView.text = "\ndeviceToken: $deviceToken"
+
+            noticeTextView.text = "\ndeviceToken: ${deviceToken}"
+
             delay(2000)
 
             processUnlockSteps()
@@ -278,7 +249,7 @@ class MiUnlockDActivity : AppCompatActivity() {
                 val encryptData = ar.optString("encryptData", "")
                 if (encryptData.isNotEmpty()) {
                     try {
-                        val bytes = Base64.getDecoder().decode(encryptData)
+                        val bytes = hexStringToByteArray(encryptData)
                         val file = File(filesDir, "encryptData")
                         FileOutputStream(file).use { it.write(bytes) }
 
@@ -312,7 +283,7 @@ class MiUnlockDActivity : AppCompatActivity() {
         serviceToken: String
     ): JSONObject {
         return try {
-            val key = Base64.getDecoder().decode(ssecurity)
+            val key = Base64.decode(ssecurity, Base64.DEFAULT)
             val iv = "0102030405060708".toByteArray(Charsets.UTF_8)
             val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
             val secretKey = SecretKeySpec(key, "AES")
@@ -321,7 +292,7 @@ class MiUnlockDActivity : AppCompatActivity() {
             val params = paramsRaw.toMutableMap()
             if (params.containsKey("data")) {
                 val dataJson = params["data"]!!
-                params["data"] = Base64.getEncoder().encodeToString(dataJson.toByteArray(Charsets.UTF_8))
+                params["data"] = Base64.encodeToString(dataJson.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
             }
 
             if (!params.containsKey("sid")) {
@@ -330,7 +301,7 @@ class MiUnlockDActivity : AppCompatActivity() {
 
             val ep: (String) -> String = { input ->
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec)
-                Base64.getEncoder().encodeToString(cipher.doFinal(input.toByteArray(Charsets.UTF_8)))
+                Base64.encodeToString(cipher.doFinal(input.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
             }
 
             val signParams = paramOrder.joinToString("&") { k -> "$k=${params[k]}" }
@@ -338,16 +309,16 @@ class MiUnlockDActivity : AppCompatActivity() {
 
             val hmacKey = "2tBeoEyJTunmWUGq7bQH2Abn0k2NhhurOaqBfyxCuLVgn4AVj7swcawe53uDUno".toByteArray(Charsets.UTF_8)
             val mac = Mac.getInstance("HmacSHA1")
-            mac.init(SecretKeySpec(hmacKey, "HmacSHA1") )
+            mac.init(SecretKeySpec(hmacKey, "HmacSHA1"))
             val hmacDigest = mac.doFinal(signStr.toByteArray(Charsets.UTF_8))
             val hexHmac = ByteString.of(*hmacDigest).hex()
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec)
-            val currentSign = Base64.getEncoder().encodeToString(cipher.doFinal(hexHmac.toByteArray(Charsets.UTF_8)))
+            val currentSign = Base64.encodeToString(cipher.doFinal(hexHmac.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
 
             val encodedParams = paramOrder.map { k -> "$k=${ep(params[k]!!)}" }
             val sha1Input = "POST&${path}&${encodedParams.joinToString("&")}&sign=$currentSign&$ssecurity"
             val sha1 = MessageDigest.getInstance("SHA1")
-            val signature = Base64.getEncoder().encodeToString(sha1.digest(sha1Input.toByteArray(Charsets.UTF_8)))
+            val signature = Base64.encodeToString(sha1.digest(sha1Input.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
 
             val formBody = FormBody.Builder()
             paramOrder.forEach { k ->
@@ -373,12 +344,17 @@ class MiUnlockDActivity : AppCompatActivity() {
             val responseBody = response.body?.string() ?: throw Exception("Empty response from server")
 
             cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec)
-            val decrypted = cipher.doFinal(Base64.getDecoder().decode(responseBody))
+            val decrypted = cipher.doFinal(Base64.decode(responseBody, Base64.DEFAULT))
             val decryptedString = String(decrypted, Charsets.UTF_8)
-            val jsonString = String(Base64.getDecoder().decode(decryptedString), Charsets.UTF_8)
+            val jsonString = String(Base64.decode(decryptedString, Base64.DEFAULT), Charsets.UTF_8)
             JSONObject(jsonString)
         } catch (e: Exception) {
             JSONObject().put("error", "Request failed: ${e.javaClass.simpleName} - ${e.message}")
         }
+    }
+
+    private fun hexStringToByteArray(hex: String): ByteArray {
+        require(hex.length % 2 == 0) { "Hex string must have an even length" }
+        return hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
 }

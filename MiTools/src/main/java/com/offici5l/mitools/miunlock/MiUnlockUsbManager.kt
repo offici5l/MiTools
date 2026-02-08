@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.app.PendingIntent
+import android.os.Build
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
@@ -18,6 +19,7 @@ object MiUnlockUsbManager {
     private const val ACTION_USB_PERMISSION = "com.offici5l.mitools.USB_PERMISSION"
     private const val CHECK_DEVICE_DELAY_MS = 2000L
     private const val PERMISSION_RETRY_DELAY_MS = 2000L
+    private const val PERMISSION_TIMEOUT_MS = 5000L
     private var usbPermissionDeferred: CompletableDeferred<Boolean>? = null
     private var usbReceiver: BroadcastReceiver? = null
 
@@ -48,9 +50,9 @@ object MiUnlockUsbManager {
                     )
                     val deferred = registerUsbReceiver(context)
                     usbManager.requestPermission(device, pendingIntent)
-
-                    val granted = withTimeoutOrNull(5000L) { deferred.await() }
-
+                    
+                    val granted = withTimeoutOrNull(PERMISSION_TIMEOUT_MS) { deferred.await() }
+                    
                     if (granted == true) {
                         return device
                     } else {
@@ -90,7 +92,13 @@ object MiUnlockUsbManager {
             }
         }
         val filter = IntentFilter(ACTION_USB_PERMISSION)
-        context.registerReceiver(usbReceiver, filter)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(usbReceiver, filter)
+        }
+        
         return deferred
     }
 
@@ -110,7 +118,9 @@ object MiUnlockUsbManager {
         val deviceList = usbManager.deviceList
         return deviceList.values.find { device ->
             device.vendorId == 0x18D1 ||
-            device.vendorId == 0x2717
+            device.vendorId == 0x2717 ||
+            device.vendorId == 0x0BB4 ||
+            device.vendorId == 0x0E8D
         }
     }
 }
